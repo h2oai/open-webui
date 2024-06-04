@@ -1036,11 +1036,11 @@ def store_doc(
         f.close()
 
         if os.getenv('H2OGPT_LOADERS'):
-            from backend.h2ogpt import get_data_h2ogpt
+            from backend.function_client import get_data_h2ogpt
             data, known_type = get_data_h2ogpt(filename, file.content_type, file_path)
-
-        loader, known_type = get_loader(filename, file.content_type, file_path)
-        data = loader.load()
+        else:
+            loader, known_type = get_loader(filename, file.content_type, file_path)
+            data = loader.load()
 
         try:
             result = store_data_in_vector_db(data, collection_name)
