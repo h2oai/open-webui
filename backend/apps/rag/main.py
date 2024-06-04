@@ -1035,6 +1035,10 @@ def store_doc(
             collection_name = calculate_sha256(f)[:63]
         f.close()
 
+        if os.getenv('H2OGPT_LOADERS'):
+            from backend.h2ogpt import get_data_h2ogpt
+            data, known_type = get_data_h2ogpt(filename, file.content_type, file_path)
+
         loader, known_type = get_loader(filename, file.content_type, file_path)
         data = loader.load()
 
