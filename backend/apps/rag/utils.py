@@ -201,6 +201,8 @@ def get_embedding_function(
     openai_url,
     batch_size,
 ):
+    if isinstance(batch_size, str):
+        batch_size = int(batch_size)
     if embedding_engine == "":
         return lambda query: embedding_function.encode(query).tolist()
     elif embedding_engine in ["ollama", "openai"]:
