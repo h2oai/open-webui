@@ -14,7 +14,7 @@
 	export let disabled = false;
 
 	export let showSetDefault = true;
-	export let showAddModelButton = false; // New variable to control the visibility of the add model button
+	export let showAddRemoveModelButtons = false;
 
 	const saveDefaultModel = async () => {
 		const hasEmptyModel = selectedModels.filter((it) => it === '');
@@ -52,7 +52,7 @@
 				</div>
 			</div>
 
-			{#if selectedModelIdx === 0 && showAddModelButton}
+			{#if selectedModelIdx === 0 && showAddRemoveModelButtons}
 				<div class="  self-center mr-2 disabled:text-gray-600 disabled:hover:text-gray-600">
 					<Tooltip content={$i18n.t('Add Model')}>
 						<button
@@ -75,7 +75,7 @@
 						</button>
 					</Tooltip>
 				</div>
-			{:else}
+			{:else if selectedModelIdx !== 0 && showAddRemoveModelButtons}
 				<div class="  self-center disabled:text-gray-600 disabled:hover:text-gray-600 mr-2">
 					<Tooltip content={$i18n.t('Remove Model')}>
 						<button
