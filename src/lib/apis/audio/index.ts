@@ -96,9 +96,9 @@ export const transcribeAudio = async (token: string, file: File) => {
 
 export const synthesizeOpenAISpeech = async (
 	token: string = '',
-	speaker: string = 'alloy',
+	speaker: string = 'SLT (female)',
 	text: string = '',
-	model: string = 'tts-1'
+	model: string = 'microsoft/speecht5_tts'
 ) => {
 	let error = null;
 
