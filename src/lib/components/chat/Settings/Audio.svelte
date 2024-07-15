@@ -25,7 +25,6 @@
 
 	let TTSEngines = ['openai', ''];
 	let TTSEngine = 'openai';
-	let STTEngine = '';
 
 	let voices = [];
 	let speaker = 'SLT (female)';
