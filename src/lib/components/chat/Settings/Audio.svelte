@@ -27,6 +27,7 @@
 	let TTSEngine = 'openai';
 
 	let voices = [];
+	let voice = '';
 	let speaker = 'SLT (female)';
 	let models = [];
 	let model = 'microsoft/speecht5_tts';
