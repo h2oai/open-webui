@@ -11,26 +11,15 @@
 
 	// Audio
 
-	let OpenAIUrl = '';
-	let OpenAIKey = '';
-	let OpenAISpeaker = 'SLT (female)';
-
-	let STTEngines = ['whisper-local', ''];
-	let STTEngine = 'whisper-local';
-
 	let conversationMode = false;
 	let speechAutoSend = false;
 	let responseAutoPlayback = false;
 	let nonLocalVoices = false;
 
-	let TTSEngines = ['openai', ''];
-	let TTSEngine = 'openai';
+	let STTEngine = 'whisper-local';
 
 	let voices = [];
 	let voice = '';
-	let speaker = 'SLT (female)';
-	let models = [];
-	let model = 'microsoft/speecht5_tts';
 
 	const getOpenAIVoices = () => {
 		voices = [
@@ -41,10 +30,6 @@
 			{ name: 'nova' },
 			{ name: 'shimmer' }
 		];
-	};
-
-	const getOpenAIVoicesModel = () => {
-		models = [{ name: 'microsoft/speecht5_tts' }, { name: 'tts_models/multilingual/multi-dataset/xtts_v2' }];
 	};
 
 	const getWebAPIVoices = () => {
@@ -75,10 +60,7 @@
 
 		STTEngine = $settings?.audio?.stt?.engine ?? 'whisper-local';
 		voice = $settings?.audio?.tts?.voice ?? $config.audio.tts.voice ?? '';
-		TTSEngine = $settings?.audio?.tts?.TTSEngine ?? 'openai';
 		nonLocalVoices = $settings.audio?.tts?.nonLocalVoices ?? false;
-		speaker = $settings?.audio?.speaker ?? '';
-		model = $settings?.audio?.model ?? '';
 
 		if ($config.audio.tts.engine === 'openai') {
 			getOpenAIVoices();
