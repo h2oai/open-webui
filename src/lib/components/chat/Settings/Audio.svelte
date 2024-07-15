@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { getAudioConfig, updateAudioConfig } from '$lib/apis/audio';
-	import { user, settings } from '$lib/stores';
+	import { user, settings, config } from '$lib/stores';
 	import { createEventDispatcher, onMount, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import Switch from '$lib/components/common/Switch.svelte';
@@ -26,6 +25,7 @@
 
 	let TTSEngines = ['openai', ''];
 	let TTSEngine = 'openai';
+	let STTEngine = '';
 
 	let voices = [];
 	let speaker = 'SLT (female)';
@@ -58,21 +58,6 @@
 		}, 100);
 	};
 
-	const toggleConversationMode = async () => {
-		conversationMode = !conversationMode;
-
-		if (conversationMode) {
-			responseAutoPlayback = true;
-			speechAutoSend = true;
-		}
-
-		saveSettings({
-			conversationMode: conversationMode,
-			responseAutoPlayback: responseAutoPlayback,
-			speechAutoSend: speechAutoSend
-		});
-	};
-
 	const toggleResponseAutoPlayback = async () => {
 		responseAutoPlayback = !responseAutoPlayback;
 		saveSettings({ responseAutoPlayback: responseAutoPlayback });
@@ -83,54 +68,22 @@
 		saveSettings({ speechAutoSend: speechAutoSend });
 	};
 
-	const updateConfigHandler = async () => {
-		if (TTSEngine === 'openai') {
-			const res = await updateAudioConfig(localStorage.token, {
-				url: OpenAIUrl,
-				key: OpenAIKey,
-				model: model,
-				speaker: OpenAISpeaker
-			});
-
-			if (res) {
-				OpenAIUrl = res.OPENAI_API_BASE_URL;
-				OpenAIKey = res.OPENAI_API_KEY;
-				model = res.OPENAI_API_MODEL;
-				OpenAISpeaker = res.OPENAI_API_VOICE;
-			}
-		}
-	};
-
 	onMount(async () => {
 		conversationMode = $settings.conversationMode ?? false;
 		speechAutoSend = $settings.speechAutoSend ?? false;
 		responseAutoPlayback = $settings.responseAutoPlayback ?? false;
 
-		STTEngine = $settings?.audio?.STTEngine ?? 'whisper-local';
-		TTSEngine = $settings?.audio?.TTSEngine ?? 'openai';
-		nonLocalVoices = $settings.audio?.nonLocalVoices ?? false;
+		STTEngine = $settings?.audio?.stt?.engine ?? 'whisper-local';
+		voice = $settings?.audio?.tts?.voice ?? $config.audio.tts.voice ?? '';
+		TTSEngine = $settings?.audio?.tts?.TTSEngine ?? 'openai';
+		nonLocalVoices = $settings.audio?.tts?.nonLocalVoices ?? false;
 		speaker = $settings?.audio?.speaker ?? '';
 		model = $settings?.audio?.model ?? '';
 
-		if (TTSEngine === 'openai') {
+		if ($config.audio.tts.engine === 'openai') {
 			getOpenAIVoices();
-			getOpenAIVoicesModel();
 		} else {
 			getWebAPIVoices();
-		}
-
-		if ($user.role === 'admin') {
-			const res = await getAudioConfig(localStorage.token);
-
-			if (res) {
-				OpenAIUrl = res.OPENAI_API_BASE_URL;
-				OpenAIKey = res.OPENAI_API_KEY;
-				model = res.OPENAI_API_MODEL;
-				OpenAISpeaker = res.OPENAI_API_VOICE;
-				if (TTSEngine === 'openai') {
-					speaker = OpenAISpeaker;
-				}
-			}
 		}
 	});
 </script>
@@ -138,21 +91,15 @@
 <form
 	class="flex flex-col h-full justify-between space-y-3 text-sm"
 	on:submit|preventDefault={async () => {
-		if ($user.role === 'admin') {
-			await updateConfigHandler();
-		}
 		saveSettings({
 			audio: {
-				STTEngine: STTEngine !== '' ? STTEngine : undefined,
-				TTSEngine: TTSEngine !== '' ? TTSEngine : undefined,
-				speaker:
-					(TTSEngine === 'openai' ? OpenAISpeaker : speaker) !== ''
-						? TTSEngine === 'openai'
-							? OpenAISpeaker
-							: speaker
-						: undefined,
-				model: model !== '' ? model : undefined,
-				nonLocalVoices: nonLocalVoices
+				stt: {
+					engine: STTEngine !== '' ? STTEngine : undefined
+				},
+				tts: {
+					voice: voice !== '' ? voice : undefined,
+					nonLocalVoices: $config.audio.tts.engine === '' ? nonLocalVoices : undefined
+				}
 			}
 		});
 		dispatch('save');
@@ -162,53 +109,25 @@
 		<div>
 			<div class=" mb-1 text-sm font-medium">{$i18n.t('STT Settings')}</div>
 
-			<div class=" py-0.5 flex w-full justify-between">
-				<div class=" self-center text-xs font-medium">{$i18n.t('Speech-to-Text Engine')}</div>
-				<div class="flex items-center relative">
-					<select
-						class="dark:bg-gray-900 w-fit pr-8 rounded px-2 p-1 text-xs bg-transparent outline-none text-right"
-						bind:value={STTEngine}
-						placeholder="Select a mode"
-						on:change={(e) => {
-							if (e.target.value !== '') {
-								navigator.mediaDevices.getUserMedia({ audio: true }).catch(function (err) {
-									toast.error(
-										$i18n.t(`Permission denied when accessing microphone: {{error}}`, {
-											error: err
-										})
-									);
-									STTEngine = '';
-								});
-							}
-						}}
-					>
-						<option value="">{$i18n.t('Default (Web API)')}</option>
-						<option value="whisper-local">{$i18n.t('Whisper (Local)')}</option>
-					</select>
+			{#if $config.audio.stt.engine !== 'web'}
+				<div class=" py-0.5 flex w-full justify-between">
+					<div class=" self-center text-xs font-medium">{$i18n.t('Speech-to-Text Engine')}</div>
+					<div class="flex items-center relative">
+						<select
+							class="dark:bg-gray-900 w-fit pr-8 rounded px-2 p-1 text-xs bg-transparent outline-none text-right"
+							bind:value={STTEngine}
+							placeholder="Select an engine"
+						>
+							<option value="">{$i18n.t('Default')}</option>
+							<option value="web">{$i18n.t('Web API')}</option>
+						</select>
+					</div>
 				</div>
-			</div>
-
-			<div class=" py-0.5 flex w-full justify-between">
-				<div class=" self-center text-xs font-medium">{$i18n.t('Conversation Mode')}</div>
-
-				<button
-					class="p-1 px-3 text-xs flex rounded transition"
-					on:click={() => {
-						toggleConversationMode();
-					}}
-					type="button"
-				>
-					{#if conversationMode === true}
-						<span class="ml-2 self-center">{$i18n.t('On')}</span>
-					{:else}
-						<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-					{/if}
-				</button>
-			</div>
+			{/if}
 
 			<div class=" py-0.5 flex w-full justify-between">
 				<div class=" self-center text-xs font-medium">
-					{$i18n.t('Auto-send input after 3 sec.')}
+					{$i18n.t('Instant Auto-Send After Voice Transcription')}
 				</div>
 
 				<button
@@ -231,50 +150,6 @@
 			<div class=" mb-1 text-sm font-medium">{$i18n.t('TTS Settings')}</div>
 
 			<div class=" py-0.5 flex w-full justify-between">
-				<div class=" self-center text-xs font-medium">{$i18n.t('Text-to-Speech Engine')}</div>
-				<div class="flex items-center relative">
-					<select
-						class=" dark:bg-gray-900 w-fit pr-8 rounded px-2 p-1 text-xs bg-transparent outline-none text-right"
-						bind:value={TTSEngine}
-						placeholder="Select a mode"
-						on:change={(e) => {
-							if (e.target.value === 'openai') {
-								getOpenAIVoices();
-								OpenAISpeaker = 'SLT (female)';
-								model = 'microsoft/speecht5_tts';
-							} else {
-								getWebAPIVoices();
-								speaker = '';
-							}
-						}}
-					>
-						<option value="">{$i18n.t('Default (Web API)')}</option>
-						<option value="openai">{$i18n.t('Open AI')}</option>
-					</select>
-				</div>
-			</div>
-
-			{#if $user.role === 'admin'}
-				{#if TTSEngine === 'openai'}
-					<div class="mt-1 flex gap-2 mb-1">
-						<input
-							class="w-full rounded-lg py-2 px-4 text-sm dark:text-gray-300 dark:bg-gray-850 outline-none"
-							placeholder={$i18n.t('API Base URL')}
-							bind:value={OpenAIUrl}
-							required
-						/>
-
-						<input
-							class="w-full rounded-lg py-2 px-4 text-sm dark:text-gray-300 dark:bg-gray-850 outline-none"
-							placeholder={$i18n.t('API Key')}
-							bind:value={OpenAIKey}
-							required
-						/>
-					</div>
-				{/if}
-			{/if}
-
-			<div class=" py-0.5 flex w-full justify-between">
 				<div class=" self-center text-xs font-medium">{$i18n.t('Auto-playback response')}</div>
 
 				<button
@@ -293,30 +168,30 @@
 			</div>
 		</div>
 
-		<hr class=" dark:border-gray-700" />
+		<hr class=" dark:border-gray-850" />
 
-		{#if TTSEngine === ''}
+		{#if $config.audio.tts.engine === ''}
 			<div>
 				<div class=" mb-2.5 text-sm font-medium">{$i18n.t('Set Voice')}</div>
 				<div class="flex w-full">
 					<div class="flex-1">
 						<select
 							class="w-full rounded-lg py-2 px-4 text-sm dark:text-gray-300 dark:bg-gray-850 outline-none"
-							bind:value={speaker}
+							bind:value={voice}
 						>
-							<option value="" selected={speaker !== ''}>{$i18n.t('Default')}</option>
-							{#each voices.filter((v) => nonLocalVoices || v.localService === true) as voice}
+							<option value="" selected={voice !== ''}>{$i18n.t('Default')}</option>
+							{#each voices.filter((v) => nonLocalVoices || v.localService === true) as _voice}
 								<option
-									value={voice.name}
+									value={_voice.name}
 									class="bg-gray-100 dark:bg-gray-700"
-									selected={speaker === voice.name}>{voice.name}</option
+									selected={voice === _voice.name}>{_voice.name}</option
 								>
 							{/each}
 						</select>
 					</div>
 				</div>
-				<div class="flex items-center justify-between mb-1">
-					<div class="text-sm">
+				<div class="flex items-center justify-between my-1.5">
+					<div class="text-xs">
 						{$i18n.t('Allow non-local voices')}
 					</div>
 
@@ -325,7 +200,7 @@
 					</div>
 				</div>
 			</div>
-		{:else if TTSEngine === 'openai'}
+		{:else if $config.audio.tts.engine === 'openai'}
 			<div>
 				<div class=" mb-2.5 text-sm font-medium">{$i18n.t('Set Voice')}</div>
 				<div class="flex w-full">
@@ -333,32 +208,13 @@
 						<input
 							list="voice-list"
 							class="w-full rounded-lg py-2 px-4 text-sm dark:text-gray-300 dark:bg-gray-850 outline-none"
-							bind:value={OpenAISpeaker}
+							bind:value={voice}
 							placeholder="Select a voice"
 						/>
 
 						<datalist id="voice-list">
 							{#each voices as voice}
 								<option value={voice.name} />
-							{/each}
-						</datalist>
-					</div>
-				</div>
-			</div>
-			<div>
-				<div class=" mb-2.5 text-sm font-medium">{$i18n.t('Set Model')}</div>
-				<div class="flex w-full">
-					<div class="flex-1">
-						<input
-							list="model-list"
-							class="w-full rounded-lg py-2 px-4 text-sm dark:text-gray-300 dark:bg-gray-850 outline-none"
-							bind:value={model}
-							placeholder="Select a model"
-						/>
-
-						<datalist id="model-list">
-							{#each models as model}
-								<option value={model.name} />
 							{/each}
 						</datalist>
 					</div>

@@ -1,6 +1,12 @@
 @font-face {
-	font-family: 'Arimo';
-	src: url('/assets/fonts/Arimo-Variable.ttf');
+	font-family: 'Inter';
+	src: url('/assets/fonts/Inter-Variable.ttf');
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Archivo';
+	src: url('/assets/fonts/Archivo-Variable.ttf');
 	font-display: swap;
 }
 
@@ -25,6 +31,18 @@ math {
 }
 
 .hljs {
+	@apply rounded-lg;
+}
+
+.markdown a {
+	@apply underline;
+}
+
+.font-primary {
+	font-family: 'Archivo', sans-serif;
+}
+
+iframe {
 	@apply rounded-lg;
 }
 
@@ -92,8 +110,16 @@ select {
 	visibility: hidden;
 }
 
+.scrollbar-hidden::-webkit-scrollbar-corner {
+	display: none;
+}
+
 .scrollbar-none::-webkit-scrollbar {
 	display: none; /* for Chrome, Safari and Opera */
+}
+
+.scrollbar-none::-webkit-scrollbar-corner {
+	display: none;
 }
 
 .scrollbar-none {
@@ -110,4 +136,21 @@ input::-webkit-inner-spin-button {
 
 input[type='number'] {
 	-moz-appearance: textfield; /* Firefox */
+}
+
+.cm-editor {
+	height: 100%;
+	width: 100%;
+}
+
+.cm-scroller {
+	@apply scrollbar-hidden;
+}
+
+.cm-editor.cm-focused {
+	outline: none;
+}
+
+.tippy-box[data-theme~='dark'] {
+	@apply rounded-lg bg-gray-950 text-xs border border-gray-900 shadow-xl;
 }

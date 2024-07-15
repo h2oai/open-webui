@@ -98,7 +98,7 @@ export const synthesizeOpenAISpeech = async (
 	token: string = '',
 	speaker: string = 'SLT (female)',
 	text: string = '',
-	model: string = 'microsoft/speecht5_tts'
+	model?: string = 'microsoft/speecht5_tts'
 ) => {
 	let error = null;
 
@@ -109,9 +109,9 @@ export const synthesizeOpenAISpeech = async (
 			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify({
-			model: model,
 			input: text,
-			voice: speaker
+			voice: speaker,
+			...(model && { model })
 		})
 	})
 		.then(async (res) => {
