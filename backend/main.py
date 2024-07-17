@@ -1967,6 +1967,17 @@ async def oauth_login(provider: str, request: Request):
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(404)
     redirect_uri = request.url_for("oauth_callback", provider=provider)
+
+    if os.getenv('HTTPS_REDIRECT', '0') == '1':
+        from urllib.parse import urlparse, urlunparse
+        # Parse the URL
+        parsed_url = urlparse(str(redirect_uri))
+
+        # Replace the scheme with 'https'
+        modified_url = parsed_url._replace(scheme='https')
+
+        # Construct the new redirect URI
+        redirect_uri = urlunparse(modified_url)
     return await oauth.create_client(provider).authorize_redirect(request, redirect_uri)
 
 
