@@ -667,7 +667,7 @@
 				class="p-1 px-3 text-xs flex rounded transition flex-shrink-0 outline-none"
 				type="button"
 				on:click={() => {
-					params.max_tokens = (params?.max_tokens ?? null) === null ? 1024 : null;
+					params.max_tokens = (params?.max_tokens ?? null) === null ? 16384 : null;
 				}}
 			>
 				{#if (params?.max_tokens ?? null) === null}
