@@ -2131,22 +2131,20 @@ if len(OAUTH_PROVIDERS) > 0:
 async def oauth_login(provider: str, request: Request):
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(404)
-    h2o_case = False
-    if h2o_case:
+
+    # If the provider has a custom redirect URL, use that, otherwise automatically generate one
+    if os.getenv('HTTPS_REDIRECT', '0') == '1':
         redirect_uri = request.url_for("oauth_callback", provider=provider)
+        from urllib.parse import urlparse, urlunparse
+        # Parse the URL
+        parsed_url = urlparse(str(redirect_uri))
 
-        if os.getenv('HTTPS_REDIRECT', '0') == '1':
-            from urllib.parse import urlparse, urlunparse
-            # Parse the URL
-            parsed_url = urlparse(str(redirect_uri))
+        # Replace the scheme with 'https'
+        modified_url = parsed_url._replace(scheme='https')
 
-            # Replace the scheme with 'https'
-            modified_url = parsed_url._replace(scheme='https')
-
-            # Construct the new redirect URI
-            redirect_uri = urlunparse(modified_url)
+        # Construct the new redirect URI
+        redirect_uri = urlunparse(modified_url)
     else:
-        # If the provider has a custom redirect URL, use that, otherwise automatically generate one
         redirect_uri = OAUTH_PROVIDERS[provider].get("redirect_uri") or request.url_for(
             "oauth_callback", provider=provider
         )
