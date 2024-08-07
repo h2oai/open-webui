@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.11] - 2024-08-02
+
+### Added
+
+- **📊 Model Information Display**: Added visuals for model selection, including images next to model names for more intuitive navigation.
+- **🗣 ElevenLabs Voice Adaptations**: Voice enhancements including support for ElevenLabs voice ID by name for personalized vocal interactions.
+- **⌨️ Arrow Keys Model Selection**: Users can now use arrow keys for quicker model selection, enhancing accessibility.
+- **🔍 Fuzzy Search in Model Selector**: Enhanced model selector with fuzzy search to locate models swiftly, including descriptions.
+- **🕹️ ComfyUI Flux Image Generation**: Added support for the new Flux image gen model; introduces environment controls like weight precision and CLIP model options in Settings.
+- **💾 Display File Size for Uploads**: Enhanced file interface now displays file size, preparing for upcoming upload restrictions.
+- **🎚️ Advanced Params "Min P"**: Added 'Min P' parameter in the advanced settings for customized model precision control.
+- **🔒 Enhanced OAuth**: Introduced custom redirect URI support for OAuth behind reverse proxies, enabling safer authentication processes.
+- **🖥 Enhanced Latex Rendering**: Adjustments made to latex rendering processes, now accurately detecting and presenting latex inputs from text.
+- **🌐 Internationalization**: Enhanced with new Romanian and updated Vietnamese and Ukrainian translations, helping broaden accessibility for international users.
+
+### Fixed
+
+- **🔧 Tags Handling in Document Upload**: Tags are now properly sent to the upload document handler, resolving issues with missing metadata.
+- **🖥️ Sensitive Input Fields**: Corrected browser misinterpretation of secure input fields, preventing misclassification as password fields.
+- **📂 Static Path Resolution in PDF Generation**: Fixed static paths that adjust dynamically to prevent issues across various environments.
+
+### Changed
+
+- **🎨 UI/UX Styling Enhancements**: Multiple minor styling updates for a cleaner and more intuitive user interface.
+- **🚧 Refactoring Various Components**: Numerous refactoring changes across styling, file handling, and function simplifications for clarity and performance.
+- **🎛️ User Valves Management**: Moved user valves from settings to direct chat controls for more user-friendly access during interactions.
+
+### Removed
+
+- **⚙️ Health Check Logging**: Removed verbose logging from the health checking processes to declutter logs and improve backend performance.
+
+## [0.3.10] - 2024-07-17
+
+### Fixed
+
+- **🔄 Improved File Upload**: Addressed the issue where file uploads lacked animation.
+- **💬 Chat Continuity**: Fixed a problem where existing chats were not functioning properly in some instances.
+- **🗂️ Chat File Reset**: Resolved the issue of chat files not resetting for new conversations, now ensuring a clean slate for each chat session.
+- **📁 Document Workspace Uploads**: Corrected the handling of document uploads in the workspace using the Files API.
+
+## [0.3.9] - 2024-07-17
+
+### Added
+
+- **📁 Files Chat Controls**: We've reverted to the old file handling behavior where uploaded files are always included. You can now manage files directly within the chat controls section, giving you the ability to remove files as needed.
+- **🔧 "Action" Function Support**: Introducing a new "Action" function to write custom buttons to the message toolbar. This feature enables more interactive messaging, with documentation coming soon.
+- **📜 Citations Handling**: For newly uploaded files in documents workspace, citations will now display the actual filename. Additionally, you can click on these filenames to open the file in a new tab for easier access.
+- **🛠️ Event Emitter and Call Updates**: Enhanced 'event_emitter' to allow message replacement and 'event_call' to support text input for Tools and Functions. Detailed documentation will be provided shortly.
+- **🎨 Styling Refactor**: Various styling updates for a cleaner and more cohesive user interface.
+- **🌐 Enhanced Translations**: Improved translations for Catalan, Ukrainian, and Brazilian Portuguese.
+
+### Fixed
+
+- **🔧 Chat Controls Priority**: Resolved an issue where Chat Controls values were being overridden by model information parameters. The priority is now Chat Controls, followed by Global Settings, then Model Settings.
+- **🪲 Debug Logs**: Fixed an issue where debug logs were not being logged properly.
+- **🔑 Automatic1111 Auth Key**: The auth key for Automatic1111 is no longer required.
+- **📝 Title Generation**: Ensured that the title generation runs only once, even when multiple models are in a chat.
+- **✅ Boolean Values in Params**: Added support for boolean values in parameters.
+- **🖼️ Files Overlay Styling**: Fixed the styling issue with the files overlay.
+
+### Changed
+
+- **⬆️ Dependency Updates**
+  - Upgraded 'pydantic' from version 2.7.1 to 2.8.2.
+  - Upgraded 'sqlalchemy' from version 2.0.30 to 2.0.31.
+  - Upgraded 'unstructured' from version 0.14.9 to 0.14.10.
+  - Upgraded 'chromadb' from version 0.5.3 to 0.5.4.
+
 ## [0.3.8] - 2024-07-09
 
 ### Added

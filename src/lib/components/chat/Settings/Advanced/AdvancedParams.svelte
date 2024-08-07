@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Switch from '$lib/components/common/Switch.svelte';
 	import { getContext, createEventDispatcher } from 'svelte';
 
 	const dispatch = createEventDispatcher();
@@ -19,6 +20,7 @@
 		mirostat_tau: null,
 		top_k: null,
 		top_p: null,
+		min_p: null,
 		tfs_z: null,
 		num_ctx: null,
 		num_batch: null,
@@ -386,6 +388,52 @@
 
 	<div class=" py-0.5 w-full justify-between">
 		<div class="flex w-full justify-between">
+			<div class=" self-center text-xs font-medium">{$i18n.t('Min P')}</div>
+
+			<button
+				class="p-1 px-3 text-xs flex rounded transition flex-shrink-0 outline-none"
+				type="button"
+				on:click={() => {
+					params.min_p = (params?.min_p ?? null) === null ? 0.0 : null;
+				}}
+			>
+				{#if (params?.min_p ?? null) === null}
+					<span class="ml-2 self-center">{$i18n.t('Default')}</span>
+				{:else}
+					<span class="ml-2 self-center">{$i18n.t('Custom')}</span>
+				{/if}
+			</button>
+		</div>
+
+		{#if (params?.min_p ?? null) !== null}
+			<div class="flex mt-0.5 space-x-2">
+				<div class=" flex-1">
+					<input
+						id="steps-range"
+						type="range"
+						min="0"
+						max="1"
+						step="0.05"
+						bind:value={params.min_p}
+						class="w-full h-2 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+					/>
+				</div>
+				<div>
+					<input
+						bind:value={params.min_p}
+						type="number"
+						class=" bg-transparent text-center w-14"
+						min="0"
+						max="1"
+						step="any"
+					/>
+				</div>
+			</div>
+		{/if}
+	</div>
+
+	<div class=" py-0.5 w-full justify-between">
+		<div class="flex w-full justify-between">
 			<div class=" self-center text-xs font-medium">{$i18n.t('Frequency Penalty')}</div>
 
 			<button
@@ -720,10 +768,22 @@
 					{#if (params?.use_mmap ?? null) === null}
 						<span class="ml-2 self-center">{$i18n.t('Default')}</span>
 					{:else}
-						<span class="ml-2 self-center">{$i18n.t('On')}</span>
+						<span class="ml-2 self-center">{$i18n.t('Custom')}</span>
 					{/if}
 				</button>
 			</div>
+
+			{#if (params?.use_mmap ?? null) !== null}
+				<div class="flex justify-between items-center mt-1">
+					<div class="text-xs text-gray-500">
+						{params.use_mmap ? 'Enabled' : 'Disabled'}
+					</div>
+
+					<div class=" pr-2">
+						<Switch bind:state={params.use_mmap} />
+					</div>
+				</div>
+			{/if}
 		</div>
 
 		<div class=" py-0.5 w-full justify-between">
@@ -740,10 +800,22 @@
 					{#if (params?.use_mlock ?? null) === null}
 						<span class="ml-2 self-center">{$i18n.t('Default')}</span>
 					{:else}
-						<span class="ml-2 self-center">{$i18n.t('On')}</span>
+						<span class="ml-2 self-center">{$i18n.t('Custom')}</span>
 					{/if}
 				</button>
 			</div>
+
+			{#if (params?.use_mlock ?? null) !== null}
+				<div class="flex justify-between items-center mt-1">
+					<div class="text-xs text-gray-500">
+						{params.use_mlock ? 'Enabled' : 'Disabled'}
+					</div>
+
+					<div class=" pr-2">
+						<Switch bind:state={params.use_mlock} />
+					</div>
+				</div>
+			{/if}
 		</div>
 
 		<div class=" py-0.5 w-full justify-between">

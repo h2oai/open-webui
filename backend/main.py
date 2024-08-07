@@ -13,8 +13,6 @@ import aiohttp
 import requests
 import mimetypes
 import shutil
-import os
-import uuid
 import inspect
 
 from fastapi import FastAPI, Request, Depends, status, UploadFile, File, Form
@@ -29,7 +27,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import StreamingResponse, Response, RedirectResponse
 
 
-from apps.socket.main import sio, app as socket_app
+from apps.socket.main import app as socket_app, get_event_emitter, get_event_call
 from apps.ollama.main import (
     app as ollama_app,
     get_all_models as get_ollama_models,
@@ -79,6 +77,7 @@ from utils.task import (
 from utils.misc import (
     get_last_user_message,
     add_or_update_system_message,
+    prepend_to_first_user_message_content,
     parse_duration,
 )
 
@@ -317,7 +316,7 @@ async def get_function_call_response(
             {"role": "user", "content": f"Query: {prompt}"},
         ],
         "stream": False,
-        "task": TASKS.FUNCTION_CALLING,
+        "task": str(TASKS.FUNCTION_CALLING),
     }
 
     try:
@@ -618,38 +617,15 @@ class ChatCompletionMiddleware(BaseHTTPMiddleware):
                     content={"detail": str(e)},
                 )
 
-            # Extract session_id, chat_id and message_id from the request body
-            session_id = None
-            if "session_id" in body:
-                session_id = body["session_id"]
-                del body["session_id"]
-            chat_id = None
-            if "chat_id" in body:
-                chat_id = body["chat_id"]
-                del body["chat_id"]
-            message_id = None
-            if "id" in body:
-                message_id = body["id"]
-                del body["id"]
+            metadata = {
+                "chat_id": body.pop("chat_id", None),
+                "message_id": body.pop("id", None),
+                "session_id": body.pop("session_id", None),
+                "valves": body.pop("valves", None),
+            }
 
-            async def __event_emitter__(data):
-                await sio.emit(
-                    "chat-events",
-                    {
-                        "chat_id": chat_id,
-                        "message_id": message_id,
-                        "data": data,
-                    },
-                    to=session_id,
-                )
-
-            async def __event_call__(data):
-                response = await sio.call(
-                    "chat-events",
-                    {"chat_id": chat_id, "message_id": message_id, "data": data},
-                    to=session_id,
-                )
-                return response
+            __event_emitter__ = get_event_emitter(metadata)
+            __event_call__ = get_event_call(metadata)
 
             # Initialize data_items to store additional data to be sent to the client
             data_items = []
@@ -692,17 +668,29 @@ class ChatCompletionMiddleware(BaseHTTPMiddleware):
             if len(contexts) > 0:
                 context_string = "/n".join(contexts).strip()
                 prompt = get_last_user_message(body["messages"])
-                body["messages"] = add_or_update_system_message(
-                    rag_template(
-                        rag_app.state.config.RAG_TEMPLATE, context_string, prompt
-                    ),
-                    body["messages"],
-                )
+
+                # Workaround for Ollama 2.0+ system prompt issue
+                # TODO: replace with add_or_update_system_message
+                if model["owned_by"] == "ollama":
+                    body["messages"] = prepend_to_first_user_message_content(
+                        rag_template(
+                            rag_app.state.config.RAG_TEMPLATE, context_string, prompt
+                        ),
+                        body["messages"],
+                    )
+                else:
+                    body["messages"] = add_or_update_system_message(
+                        rag_template(
+                            rag_app.state.config.RAG_TEMPLATE, context_string, prompt
+                        ),
+                        body["messages"],
+                    )
 
             # If there are citations, add them to the data_items
             if len(citations) > 0:
                 data_items.append({"citations": citations})
 
+            body["metadata"] = metadata
             modified_body_bytes = json.dumps(body).encode("utf-8")
             # Replace the request body with the modified one
             request._body = modified_body_bytes
@@ -823,9 +811,6 @@ def filter_pipeline(payload, user):
                 if "detail" in res:
                     raise Exception(r.status_code, res["detail"])
 
-    if "pipeline" not in app.state.MODELS[model_id] and "task" in payload:
-        del payload["task"]
-
     return payload
 
 
@@ -935,6 +920,7 @@ webui_app.state.EMBEDDING_FUNCTION = rag_app.state.EMBEDDING_FUNCTION
 
 
 async def get_all_models():
+    # TODO: Optimize this function
     pipe_models = []
     openai_models = []
     ollama_models = []
@@ -961,6 +947,14 @@ async def get_all_models():
 
     models = pipe_models + openai_models + ollama_models
 
+    global_action_ids = [
+        function.id for function in Functions.get_global_action_functions()
+    ]
+    enabled_action_ids = [
+        function.id
+        for function in Functions.get_functions_by_type("action", active_only=True)
+    ]
+
     custom_models = Models.get_all_models()
     for custom_model in custom_models:
         if custom_model.base_model_id == None:
@@ -971,9 +965,16 @@ async def get_all_models():
                 ):
                     model["name"] = custom_model.name
                     model["info"] = custom_model.model_dump()
+
+                    action_ids = []
+                    if "info" in model and "meta" in model["info"]:
+                        action_ids.extend(model["info"]["meta"].get("actionIds", []))
+
+                    model["action_ids"] = action_ids
         else:
             owned_by = "openai"
             pipe = None
+            action_ids = []
 
             for model in models:
                 if (
@@ -983,6 +984,9 @@ async def get_all_models():
                     owned_by = model["owned_by"]
                     if "pipe" in model:
                         pipe = model["pipe"]
+
+                    if "info" in model and "meta" in model["info"]:
+                        action_ids.extend(model["info"]["meta"].get("actionIds", []))
                     break
 
             models.append(
@@ -995,8 +999,58 @@ async def get_all_models():
                     "info": custom_model.model_dump(),
                     "preset": True,
                     **({"pipe": pipe} if pipe is not None else {}),
+                    "action_ids": action_ids,
                 }
             )
+
+    for model in models:
+        action_ids = []
+        if "action_ids" in model:
+            action_ids = model["action_ids"]
+            del model["action_ids"]
+
+        action_ids = action_ids + global_action_ids
+        action_ids = list(set(action_ids))
+        action_ids = [
+            action_id for action_id in action_ids if action_id in enabled_action_ids
+        ]
+
+        model["actions"] = []
+        for action_id in action_ids:
+            action = Functions.get_function_by_id(action_id)
+
+            if action_id in webui_app.state.FUNCTIONS:
+                function_module = webui_app.state.FUNCTIONS[action_id]
+            else:
+                function_module, _, _ = load_function_module_by_id(action_id)
+                webui_app.state.FUNCTIONS[action_id] = function_module
+
+            if hasattr(function_module, "actions"):
+                actions = function_module.actions
+                model["actions"].extend(
+                    [
+                        {
+                            "id": f"{action_id}.{_action['id']}",
+                            "name": _action.get(
+                                "name", f"{action.name} ({_action['id']})"
+                            ),
+                            "description": action.meta.description,
+                            "icon_url": _action.get(
+                                "icon_url", action.meta.manifest.get("icon_url", None)
+                            ),
+                        }
+                        for _action in actions
+                    ]
+                )
+            else:
+                model["actions"].append(
+                    {
+                        "id": action_id,
+                        "name": action.name,
+                        "description": action.meta.description,
+                        "icon_url": action.meta.manifest.get("icon_url", None),
+                    }
+                )
 
     app.state.MODELS = {model["id"]: model for model in models}
     webui_app.state.MODELS = app.state.MODELS
@@ -1036,13 +1090,24 @@ async def generate_chat_completions(form_data: dict, user=Depends(get_verified_u
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Model not found",
         )
-
     model = app.state.MODELS[model_id]
 
-    pipe = model.get("pipe")
-    if pipe:
+    # `task` field is used to determine the type of the request, e.g. `title_generation`, `query_generation`, etc.
+    task = None
+    if "task" in form_data:
+        task = form_data["task"]
+        del form_data["task"]
+
+    if task:
+        if "metadata" in form_data:
+            form_data["metadata"]["task"] = task
+        else:
+            form_data["metadata"] = {"task": task}
+
+    if model.get("pipe"):
         return await generate_function_chat_completion(form_data, user=user)
     if model["owned_by"] == "ollama":
+        print("generate_ollama_chat_completion")
         return await generate_ollama_chat_completion(form_data, user=user)
     else:
         return await generate_openai_chat_completion(form_data, user=user)
@@ -1101,30 +1166,27 @@ async def chat_completed(form_data: dict, user=Depends(get_verified_user)):
                             status_code=r.status_code,
                             content=res,
                         )
-                except:
+                except Exception:
                     pass
 
             else:
                 pass
 
-    async def __event_emitter__(event_data):
-        await sio.emit(
-            "chat-events",
-            {
-                "chat_id": data["chat_id"],
-                "message_id": data["id"],
-                "data": event_data,
-            },
-            to=data["session_id"],
-        )
+    __event_emitter__ = get_event_emitter(
+        {
+            "chat_id": data["chat_id"],
+            "message_id": data["id"],
+            "session_id": data["session_id"],
+        }
+    )
 
-    async def __event_call__(event_data):
-        response = await sio.call(
-            "chat-events",
-            {"chat_id": data["chat_id"], "message_id": data["id"], "data": event_data},
-            to=data["session_id"],
-        )
-        return response
+    __event_call__ = get_event_call(
+        {
+            "chat_id": data["chat_id"],
+            "message_id": data["id"],
+            "session_id": data["session_id"],
+        }
+    )
 
     def get_priority(function_id):
         function = Functions.get_function_by_id(function_id)
@@ -1211,6 +1273,110 @@ async def chat_completed(form_data: dict, user=Depends(get_verified_user)):
                 data = await outlet(**params)
             else:
                 data = outlet(**params)
+
+        except Exception as e:
+            print(f"Error: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": str(e)},
+            )
+
+    return data
+
+
+@app.post("/api/chat/actions/{action_id}")
+async def chat_action(action_id: str, form_data: dict, user=Depends(get_verified_user)):
+    if "." in action_id:
+        action_id, sub_action_id = action_id.split(".")
+    else:
+        sub_action_id = None
+
+    action = Functions.get_function_by_id(action_id)
+    if not action:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Action not found",
+        )
+
+    data = form_data
+    model_id = data["model"]
+    if model_id not in app.state.MODELS:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found",
+        )
+    model = app.state.MODELS[model_id]
+
+    __event_emitter__ = get_event_emitter(
+        {
+            "chat_id": data["chat_id"],
+            "message_id": data["id"],
+            "session_id": data["session_id"],
+        }
+    )
+    __event_call__ = get_event_call(
+        {
+            "chat_id": data["chat_id"],
+            "message_id": data["id"],
+            "session_id": data["session_id"],
+        }
+    )
+
+    if action_id in webui_app.state.FUNCTIONS:
+        function_module = webui_app.state.FUNCTIONS[action_id]
+    else:
+        function_module, _, _ = load_function_module_by_id(action_id)
+        webui_app.state.FUNCTIONS[action_id] = function_module
+
+    if hasattr(function_module, "valves") and hasattr(function_module, "Valves"):
+        valves = Functions.get_function_valves_by_id(action_id)
+        function_module.valves = function_module.Valves(**(valves if valves else {}))
+
+    if hasattr(function_module, "action"):
+        try:
+            action = function_module.action
+
+            # Get the signature of the function
+            sig = inspect.signature(action)
+            params = {"body": data}
+
+            # Extra parameters to be passed to the function
+            extra_params = {
+                "__model__": model,
+                "__id__": sub_action_id if sub_action_id is not None else action_id,
+                "__event_emitter__": __event_emitter__,
+                "__event_call__": __event_call__,
+            }
+
+            # Add extra params in contained in function signature
+            for key, value in extra_params.items():
+                if key in sig.parameters:
+                    params[key] = value
+
+            if "__user__" in sig.parameters:
+                __user__ = {
+                    "id": user.id,
+                    "email": user.email,
+                    "name": user.name,
+                    "role": user.role,
+                }
+
+                try:
+                    if hasattr(function_module, "UserValves"):
+                        __user__["valves"] = function_module.UserValves(
+                            **Functions.get_user_valves_by_id_and_user_id(
+                                action_id, user.id
+                            )
+                        )
+                except Exception as e:
+                    print(e)
+
+                params = {**params, "__user__": __user__}
+
+            if inspect.iscoroutinefunction(action):
+                data = await action(**params)
+            else:
+                data = action(**params)
 
         except Exception as e:
             print(f"Error: {e}")
@@ -1314,7 +1480,7 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
         "stream": False,
         "max_tokens": 50,
         "chat_id": form_data.get("chat_id", None),
-        "task": TASKS.TITLE_GENERATION,
+        "task": str(TASKS.TITLE_GENERATION),
     }
 
     log.debug(payload)
@@ -1367,7 +1533,7 @@ async def generate_search_query(form_data: dict, user=Depends(get_verified_user)
         "messages": [{"role": "user", "content": content}],
         "stream": False,
         "max_tokens": 30,
-        "task": TASKS.QUERY_GENERATION,
+        "task": str(TASKS.QUERY_GENERATION),
     }
 
     print(payload)
@@ -1424,7 +1590,7 @@ Message: """{{prompt}}"""
         "stream": False,
         "max_tokens": 4,
         "chat_id": form_data.get("chat_id", None),
-        "task": TASKS.EMOJI_GENERATION,
+        "task": str(TASKS.EMOJI_GENERATION),
     }
 
     log.debug(payload)
@@ -1577,7 +1743,6 @@ class AddPipelineForm(BaseModel):
 
 @app.post("/api/pipelines/add")
 async def add_pipeline(form_data: AddPipelineForm, user=Depends(get_admin_user)):
-
     r = None
     try:
         urlIdx = form_data.urlIdx
@@ -1620,7 +1785,6 @@ class DeletePipelineForm(BaseModel):
 
 @app.delete("/api/pipelines/delete")
 async def delete_pipeline(form_data: DeletePipelineForm, user=Depends(get_admin_user)):
-
     r = None
     try:
         urlIdx = form_data.urlIdx
@@ -1698,7 +1862,6 @@ async def get_pipeline_valves(
     models = await get_all_models()
     r = None
     try:
-
         url = openai_app.state.config.OPENAI_API_BASE_URLS[urlIdx]
         key = openai_app.state.config.OPENAI_API_KEYS[urlIdx]
 
@@ -1833,6 +1996,7 @@ async def get_app_config():
             "auth": WEBUI_AUTH,
             "auth_trusted_header": bool(webui_app.state.AUTH_TRUSTED_EMAIL_HEADER),
             "enable_signup": webui_app.state.config.ENABLE_SIGNUP,
+            "enable_login_form": webui_app.state.config.ENABLE_LOGIN_FORM,
             "enable_web_search": rag_app.state.config.ENABLE_RAG_WEB_SEARCH,
             "enable_image_generation": images_app.state.config.ENABLED,
             "enable_community_sharing": webui_app.state.config.ENABLE_COMMUNITY_SHARING,
@@ -1949,6 +2113,7 @@ for provider_name, provider_config in OAUTH_PROVIDERS.items():
         client_kwargs={
             "scope": provider_config["scope"],
         },
+        redirect_uri=provider_config["redirect_uri"],
     )
 
 # SessionMiddleware is used by authlib for oauth
@@ -1966,18 +2131,25 @@ if len(OAUTH_PROVIDERS) > 0:
 async def oauth_login(provider: str, request: Request):
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(404)
-    redirect_uri = request.url_for("oauth_callback", provider=provider)
+    h2o_case = False
+    if h2o_case:
+        redirect_uri = request.url_for("oauth_callback", provider=provider)
 
-    if os.getenv('HTTPS_REDIRECT', '0') == '1':
-        from urllib.parse import urlparse, urlunparse
-        # Parse the URL
-        parsed_url = urlparse(str(redirect_uri))
+        if os.getenv('HTTPS_REDIRECT', '0') == '1':
+            from urllib.parse import urlparse, urlunparse
+            # Parse the URL
+            parsed_url = urlparse(str(redirect_uri))
 
-        # Replace the scheme with 'https'
-        modified_url = parsed_url._replace(scheme='https')
+            # Replace the scheme with 'https'
+            modified_url = parsed_url._replace(scheme='https')
 
-        # Construct the new redirect URI
-        redirect_uri = urlunparse(modified_url)
+            # Construct the new redirect URI
+            redirect_uri = urlunparse(modified_url)
+    else:
+        # If the provider has a custom redirect URL, use that, otherwise automatically generate one
+        redirect_uri = OAUTH_PROVIDERS[provider].get("redirect_uri") or request.url_for(
+            "oauth_callback", provider=provider
+        )
     return await oauth.create_client(provider).authorize_redirect(request, redirect_uri)
 
 
