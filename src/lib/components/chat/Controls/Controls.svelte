@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { createEventDispatcher, getContext } from 'svelte';
 	const dispatch = createEventDispatcher();
 	const i18n = getContext('i18n');
@@ -9,8 +9,8 @@
 	import FileItem from '$lib/components/common/FileItem.svelte';
 	import Collapsible from '$lib/components/common/Collapsible.svelte';
 
+	import { user } from '$lib/stores';
 	export let models = [];
-
 	export let chatFiles = [];
 	export let params = {};
 </script>
@@ -35,7 +35,9 @@
 					{#each chatFiles as file, fileIdx}
 						<FileItem
 							className="w-full"
-							url={`${file?.url}`}
+							item={file}
+							edit={true}
+							url={file?.url ? file.url : null}
 							name={file.name}
 							type={file.type}
 							size={file?.size}
@@ -45,6 +47,9 @@
 
 								chatFiles.splice(fileIdx, 1);
 								chatFiles = chatFiles;
+							}}
+							on:click={() => {
+								console.log(file);
 							}}
 						/>
 					{/each}
@@ -78,7 +83,7 @@
 		<Collapsible title={$i18n.t('Advanced Params')} open={true}>
 			<div class="text-sm mt-1.5" slot="content">
 				<div>
-					<AdvancedParams bind:params />
+					<AdvancedParams admin={$user?.role === 'admin'} bind:params />
 				</div>
 			</div>
 		</Collapsible>

@@ -5,7 +5,15 @@
 
 	import { onMount, getContext } from 'svelte';
 	import { page } from '$app/stores';
-	import { settings, user, config, models, tools, functions } from '$lib/stores';
+	import {
+		settings,
+		user,
+		config,
+		models,
+		tools,
+		functions,
+		knowledge as _knowledge
+	} from '$lib/stores';
 	import { splitStream } from '$lib/utils';
 
 	import { getModelInfos, updateModelById } from '$lib/apis/models';
@@ -18,6 +26,7 @@
 	import ToolsSelector from '$lib/components/workspace/Models/ToolsSelector.svelte';
 	import FiltersSelector from '$lib/components/workspace/Models/FiltersSelector.svelte';
 	import ActionsSelector from '$lib/components/workspace/Models/ActionsSelector.svelte';
+	import Capabilities from '$lib/components/workspace/Models/Capabilities.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -143,7 +152,7 @@
 								: {
 										id: model.id,
 										name: model.name
-								  }
+									}
 						)
 					)
 				};
@@ -154,13 +163,31 @@
 
 				params = { ...params, ...model?.info?.params };
 				params.stop = params?.stop
-					? (typeof params.stop === 'string' ? params.stop.split(',') : params?.stop ?? []).join(
+					? (typeof params.stop === 'string' ? params.stop.split(',') : (params?.stop ?? [])).join(
 							','
-					  )
+						)
 					: null;
 
 				if (model?.info?.meta?.knowledge) {
-					knowledge = [...model?.info?.meta?.knowledge];
+					console.log(model?.info?.meta?.knowledge);
+					knowledge = [...model?.info?.meta?.knowledge].map((item) => {
+						if (item?.collection_name) {
+							return {
+								id: item.collection_name,
+								name: item.name,
+								legacy: true
+							};
+						} else if (item?.collection_names) {
+							return {
+								name: item.name,
+								type: 'collection',
+								collection_names: item.collection_names,
+								legacy: true
+							};
+						} else {
+							return item;
+						}
+					});
 				}
 
 				if (model?.info?.meta?.toolIds) {
@@ -237,7 +264,7 @@
 					ctx.drawImage(img, offsetX, offsetY, newWidth, newHeight);
 
 					// Get the base64 representation of the compressed image
-					const compressedSrc = canvas.toDataURL('image/jpeg');
+					const compressedSrc = canvas.toDataURL();
 
 					// Display the compressed image
 					info.meta.profile_image_url = compressedSrc;
@@ -249,7 +276,9 @@
 			if (
 				inputFiles &&
 				inputFiles.length > 0 &&
-				['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(inputFiles[0]['type'])
+				['image/gif', 'image/webp', 'image/jpeg', 'image/png', 'image/svg+xml'].includes(
+					inputFiles[0]['type']
+				)
 			) {
 				reader.readAsDataURL(inputFiles[0]);
 			} else {
@@ -294,7 +323,7 @@
 					<button
 						class=" {info.meta.profile_image_url
 							? ''
-							: 'p-4'} rounded-full dark:bg-gray-700 border border-dashed border-gray-200 flex items-center"
+							: 'p-4'} rounded-full border border-dashed border-gray-200 flex items-center"
 						type="button"
 						on:click={() => {
 							filesInputElement.click();
@@ -555,7 +584,7 @@
 			</div>
 
 			<div class="my-2">
-				<Knowledge bind:knowledge />
+				<Knowledge bind:selectedKnowledge={knowledge} collections={$_knowledge} />
 			</div>
 
 			<div class="my-2">
@@ -577,25 +606,7 @@
 			</div>
 
 			<div class="my-2">
-				<div class="flex w-full justify-between mb-1">
-					<div class=" self-center text-sm font-semibold">{$i18n.t('Capabilities')}</div>
-				</div>
-				<div class="flex flex-col">
-					{#each Object.keys(capabilities) as capability}
-						<div class=" flex items-center gap-2">
-							<Checkbox
-								state={capabilities[capability] ? 'checked' : 'unchecked'}
-								on:change={(e) => {
-									capabilities[capability] = e.detail === 'checked';
-								}}
-							/>
-
-							<div class=" py-0.5 text-sm w-full capitalize">
-								{$i18n.t(capability)}
-							</div>
-						</div>
-					{/each}
-				</div>
+				<Capabilities bind:capabilities />
 			</div>
 
 			<div class="my-1">

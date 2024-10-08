@@ -68,6 +68,10 @@
 		"title": "Indonesian (Bahasa Indonesia)"
 	},
 	{
+		"code": "ie-GA",
+		"title": "Irish (Gaeilge)"
+	},
+	{
 		"code": "it-IT",
 		"title": "Italian (Italiano)"
 	},
@@ -86,6 +90,10 @@
 	{
 		"code": "lt-LT",
 		"title": "Lithuanian (Lietuvių)"
+	},
+	{
+		"code": "ms-MY",
+		"title": "Malay (Bahasa Malaysia)"
 	},
 	{
 		"code": "nb-NO",

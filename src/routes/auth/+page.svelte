@@ -8,6 +8,7 @@
 	import { toast } from 'svelte-sonner';
 	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
 	import { page } from '$app/stores';
+	import { getBackendConfig } from '$lib/apis';
 
 	const i18n = getContext('i18n');
 
@@ -28,6 +29,7 @@
 
 			$socket.emit('user-join', { auth: { token: sessionUser.token } });
 			await user.set(sessionUser);
+			await config.set(await getBackendConfig());
 			goto('/');
 		}
 	};
@@ -138,9 +140,7 @@
 						class="flex items-center justify-center gap-3 text-xl sm:text-2xl text-center font-semibold dark:text-gray-200"
 					>
 						<div>
-							{$i18n.t('Signing in')}
-							{$i18n.t('to')}
-							{$WEBUI_NAME}
+							{$i18n.t('Signing in to {{WEBUI_NAME}}', { WEBUI_NAME: $WEBUI_NAME })}
 						</div>
 
 						<div>
@@ -158,9 +158,11 @@
 					>
 						<div class="mb-1">
 							<div class=" text-2xl font-medium">
-								{mode === 'signin' ? $i18n.t('Sign in') : $i18n.t('Sign up')}
-								{$i18n.t('to')}
-								{$WEBUI_NAME}
+								{#if mode === 'signin'}
+									{$i18n.t(`Sign in to {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
+								{:else}
+									{$i18n.t(`Sign up to {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
+								{/if}
 							</div>
 
 							{#if mode === 'signup'}
@@ -352,8 +354,23 @@
 
 <style>
 	.font-mona {
-		font-family: 'Mona Sans', -apple-system, 'Inter', ui-sans-serif, system-ui, 'Segoe UI', Roboto,
-			Ubuntu, Cantarell, 'Noto Sans', sans-serif, 'Helvetica Neue', Arial, 'Apple Color Emoji',
-			'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+		font-family:
+			'Mona Sans',
+			-apple-system,
+			'Inter',
+			ui-sans-serif,
+			system-ui,
+			'Segoe UI',
+			Roboto,
+			Ubuntu,
+			Cantarell,
+			'Noto Sans',
+			sans-serif,
+			'Helvetica Neue',
+			Arial,
+			'Apple Color Emoji',
+			'Segoe UI Emoji',
+			'Segoe UI Symbol',
+			'Noto Color Emoji';
 	}
 </style>
