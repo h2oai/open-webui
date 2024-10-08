@@ -1017,7 +1017,7 @@
 								(str) => decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
 							)
 						: undefined,
-				num_predict: params?.max_tokens ?? $settings?.params?.max_tokens ?? undefined,
+				num_predict: params?.max_tokens ?? $settings?.params?.max_tokens ?? 4096,
 				repeat_penalty:
 					params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined
 			},
@@ -1403,7 +1403,7 @@
 					top_p: params?.top_p ?? $settings?.params?.top_p ?? undefined,
 					frequency_penalty:
 						params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined,
-					max_tokens: params?.max_tokens ?? $settings?.params?.max_tokens ?? undefined,
+					max_tokens: params?.max_tokens ?? $settings?.params?.max_tokens ?? 4096,
 					tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
 					files: files.length > 0 ? files : undefined,
 					session_id: $socket?.id,

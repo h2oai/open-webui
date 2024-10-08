@@ -60,7 +60,7 @@
 		num_ctx: null,
 		num_batch: null,
 		num_keep: null,
-		max_tokens: null,
+		max_tokens: 4096,
 		num_gpu: null
 	};
 
@@ -344,7 +344,7 @@
 						num_ctx: params.num_ctx !== null ? params.num_ctx : undefined,
 						num_batch: params.num_batch !== null ? params.num_batch : undefined,
 						num_keep: params.num_keep !== null ? params.num_keep : undefined,
-						max_tokens: params.max_tokens !== null ? params.max_tokens : undefined,
+						max_tokens: params.max_tokens !== null ? params.max_tokens : 4096,
 						use_mmap: params.use_mmap !== null ? params.use_mmap : undefined,
 						use_mlock: params.use_mlock !== null ? params.use_mlock : undefined,
 						num_thread: params.num_thread !== null ? params.num_thread : undefined,

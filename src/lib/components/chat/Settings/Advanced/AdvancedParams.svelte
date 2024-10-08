@@ -26,7 +26,7 @@
 		num_ctx: null,
 		num_batch: null,
 		num_keep: null,
-		max_tokens: null,
+		max_tokens: 4096,
 		use_mmap: null,
 		use_mlock: null,
 		num_thread: null,
@@ -746,7 +746,7 @@
 				class="p-1 px-3 text-xs flex rounded transition flex-shrink-0 outline-none"
 				type="button"
 				on:click={() => {
-					params.max_tokens = (params?.max_tokens ?? null) === null ? 16384 : null;
+					params.max_tokens = (params?.max_tokens ?? null) === null ? 16384 : 4096;
 				}}
 			>
 				{#if (params?.max_tokens ?? null) === null}

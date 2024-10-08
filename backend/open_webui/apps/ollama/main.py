@@ -886,6 +886,8 @@ async def generate_openai_chat_completion(
         if params:
             payload = apply_model_params_to_body_openai(params, payload)
             payload = apply_model_system_prompt_to_body(params, payload, user)
+            if "max_tokens" not in payload:
+                payload["max_tokens"] = 4096
 
     if ":" not in payload["model"]:
         payload["model"] = f"{payload['model']}:latest"

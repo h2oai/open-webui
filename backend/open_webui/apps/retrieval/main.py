@@ -797,7 +797,7 @@ def process_file(
             if file_path:
                 if os.getenv('H2OGPT_LOADERS'):
                     from backend.function_client import get_data_h2ogpt
-                    docs, known_type = get_data_h2ogpt(file.filename, file.content_type, file_path)
+                    docs, known_type = get_data_h2ogpt(file.filename, file.meta.get("content_type"), file_path)
                 else:
                     loader = Loader(
                         engine=app.state.config.CONTENT_EXTRACTION_ENGINE,

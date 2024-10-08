@@ -414,12 +414,16 @@ async def generate_chat_completion(
             # Remove "max_completion_tokens" from the payload
             payload["max_tokens"] = payload["max_completion_tokens"]
             del payload["max_completion_tokens"]
+        if payload.get("max_tokens") is None:
+            payload["max_tokens"] = 4096
     else:
         if is_o1 and "max_tokens" in payload:
             payload["max_completion_tokens"] = payload["max_tokens"]
             del payload["max_tokens"]
         if "max_tokens" in payload and "max_completion_tokens" in payload:
             del payload["max_tokens"]
+        if payload.get("max_completion_tokens") is None:
+            payload["max_completion_tokens"] = 4096
 
     # Fix: O1 does not support the "system" parameter, Modify "system" to "user"
     if is_o1 and payload["messages"][0]["role"] == "system":
